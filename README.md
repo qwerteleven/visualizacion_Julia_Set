@@ -1,118 +1,124 @@
-# 🌀 Visualizador del Conjunto de Julia
+# 🌀 Julia Set Visualizer
 
-Prototipo de **programación creativa** (< 1024 caracteres) que genera visualizaciones interactivas de [fractales del conjunto de Julia](https://en.wikipedia.org/wiki/Julia_set) con coloración aleatoria en tiempo real. Desarrollado en [Processing](https://processing.org/) para la asignatura CIU — *Creando Interfaces de Usuario*.
+A **creative programming** prototype (< 1024 characters) that generates interactive visualizations of Julia set fractals with real-time random coloring. Developed in Processing for the CIU course — *Creating User Interfaces*.
 
-> **Autor:** Leopoldo López Reverón  
-> Escuela de Ingeniería Informática — Universidad de Las Palmas de Gran Canaria
-
----
-
-## Resultado
-
-![Animación del conjunto de Julia](./animation.gif)
-
-Cada fotograma genera un fractal distinto: parámetros `c`, radio `R`, grado polinomial y paleta de color se eligen aleatoriamente en cada llamada a `draw()`.
+> **Author:** Leopoldo López Reverón
+> School of Computer Engineering — University of Las Palmas de Gran Canaria
 
 ---
 
-## ¿Qué es el Conjunto de Julia?
+## Result
 
-El [conjunto de Julia](https://en.wikipedia.org/wiki/Julia_set) es una figura [fractal](https://en.wikipedia.org/wiki/Fractal) definida en el [plano complejo](https://en.wikipedia.org/wiki/Complex_plane). Para una función `f(z)` y una constante compleja `c`, el conjunto de Julia `J(f)` es la frontera entre los puntos cuya órbita bajo iteración repetida de `f` permanece acotada y los que divergen al infinito.
+![Julia set animation](./animation.gif)
 
-La forma más conocida usa `f(z) = z² + c`, pero este visualizador generaliza a potencias arbitrarias mediante la forma polar:
+Each frame generates a different fractal: parameters `c`, radius `R`, polynomial degree, and color palette are chosen randomly in each call to `draw()`.
+
+---
+
+## What is the Julia Set?
+
+
+The Julia set is a fractal figure defined on the complex plane. For a function f(z) and a complex constant c, the Julia set J(f) is the boundary between the points whose orbit under repeated iteration of f remains bounded and those that diverge to infinity.
+
+The most common form uses `f(z) = z² + c`, but this visualizer generalizes to arbitrary powers using the polar form:
 
 ```
-z^n = r^n · (cos(n·θ) + i·sin(n·θ))     [Fórmula de De Moivre]
+z^n = r^n · (cos(n·θ) + i·sin(n·θ)) [De Moivre's Formula]
 ```
 
-donde `r = |z|` y `θ = atan2(Im(z), Re(z))`.
+where `r = |z|` and `θ = atan2(Im(z), Re(z))`.
 
-Esto produce una familia infinita de fractales con simetrías de orden `n`, controlada en el código por `grade`.
+This produces an infinite family of fractals with symmetries of order `n`, controlled in the code by `grade`.
 
 ---
 
-## Cómo funciona el código
+## How the Code Works
 
-### Algoritmo de escape (*escape time algorithm*)
+### Escape Time Algorithm
 
-El [algoritmo de tiempo de escape](https://en.wikipedia.org/wiki/Plotting_algorithms_for_the_Mandelbrot_set#Escape_time_algorithm) es el método estándar para visualizar fractales de plano complejo:
+The escape time algorithm (https://en.wikipedia.org/wiki/Plotting_algorithms_for_the_Mandelbrot_set#Escape_time_algorithm) is the standard method for visualizing fractals in the complex plane:
 
-1. Cada píxel `(x, y)` se mapea a un número complejo `z = zx + i·zy` dentro de la ventana `[-R/2, R/2]²`.
-2. Se itera `z ← z^grade + c` hasta que `|z| > K` (el punto "escapa") o se alcanza `MAXITER` iteraciones.
-3. El número de iteraciones `n` hasta el escape determina el color del píxel.
+1. Each pixel `(x, y)` is mapped to a complex number `z = zx + i·zy` within the window `[-R/2, R/2]²`.
+
+2. Iterate `z ← z^grade + c` until `|z| > K` (the "escape" point) or `MAXITER` iterations are reached.
+
+3. The number of iterations `n` until escape determines the pixel's color.
+
 
 ```processing
-while(zx*zx + zy*zy < K*K && n < MAXITER) {
-    float r_n  = pow(zx*zx + zy*zy, grade / 2.0);
-    float theta = atan2(zy, zx);
-    float aux = r_n * cos(grade * theta) + cx;   // Re(z^n + c)
-    zy        = r_n * sin(grade * theta) + cy;   // Im(z^n + c)
-    zx = aux;
-    n++;
+while(zx*zx + zy*zy < K*K && n < MAXITER) { 
+float r_n = pow(zx*zx + zy*zy, grade / 2.0); 
+float theta = atan2(zy, zx); 
+float aux = r_n * cos(grade * theta) + cx; // Re(z^n + c) 
+zy = r_n * sin(grade * theta) + cy; // Im(z^n + c) 
+zx = aux; 
+n++;
 }
 ```
 
-Los puntos que nunca escapan (pertenecen al conjunto) se pintan de negro (`stroke(0)`). El resto recibe un color proporcional a `n`.
+Points that never escape (belong to the set) are painted black (`stroke(0)`). The rest receive a color proportional to `n`.
 
-### Espacio de color y mapeo
+### Color Space and Mapping
 
-En lugar de HSB clásico, el color se genera multiplicando `n` por tres factores aleatorios independientes `fn1, fn2, fn3` sobre los canales RGB, con módulo 255:
+Instead of classic HSB, color is generated by multiplying `n` by three independent random factors `fn1, fn2, fn3` on the RGB channels, with a modulo of 255:
 
 ```processing
 stroke((n * fn1) % 255, (n * fn2) % 255, (n * fn3) % 255);
 ```
 
-Esto produce paletas distintas en cada fotograma sin necesidad de un selector de color explícito.
+This produces distinct palettes in each frame without the need for an explicit color picker.
 
-### Optimizaciones de rendimiento
+### Performance Optimizations
 
-| Decisión | Efecto |
-|----------|--------|
-| Malla de píxeles 2×2 (`x=x+2`, `y=y+2`) | Divide el tiempo de render a la mitad |
-| `MAXITER = 40` | Equilibrio entre detalle y latencia |
-| Grado polinomial máximo = 9 | Evita iteraciones excesivamente costosas |
-| `noSmooth()` | Elimina antialiasing innecesario en píxeles discretos |
+| Decision | Effect |
+|----------|--------
+2×2 pixel mesh (`x=x+2`, `y=y+2`) | Halves render time |
+`MAXITER = 40` | Balance between detail and latency |
+| Maximum polynomial degree = 9 | Avoids excessively expensive iterations |
+| `noSmooth()` | Removes unnecessary antialiasing on discrete pixels |
 
-### Parámetros aleatorios por fotograma
+### Random parameters per frame
 
-| Variable | Rango | Efecto visual |
+| Variable | Range | Visual effect |
 |----------|-------|---------------|
-| `cx, cy` | `[-1, 1]` | Constante compleja `c` → cambia la forma del fractal |
-| `R` | `[1, 9]` | Zoom / escala del plano complejo visualizado |
-| `grade` | `[0, 9]` | Orden del polinómio → simetría rotacional del fractal |
-| `fn1/fn2/fn3` | `[0, 255]` | Paleta de color del fotograma |
+`cx, cy` | `[-1, 1]` | Complex constant `c` → changes the shape of the fractal |
+`R` | `[1, 9]` | Zoom/scale of the displayed complex plane |
+`grade` | `[0, 9]` | Polynomial order → rotational symmetry of the fractal |
+`fn1/fn2/fn3` | `[0, 255]` | Color palette of the frame |
 
 ---
 
-## Estructura del proyecto
+## Project Structure
 
 ```
 visualizacion_julia_set/
-├── CIU_Julia_Set.pde   # Sketch de Processing (< 1024 caracteres)
-├── animation.gif       # Captura de varios fotogramas
+├── CIU_Julia_Set.pde # Processing Sketch (< 1024 characters)
+├── animation.gif # Capture of multiple frames
 └── README.md
 ```
 
 ---
 
-## Ejecución
+## Execution
 
-1. Instalar [Processing 3+](https://processing.org/download).
-2. Abrir `CIU_Julia_Set.pde`.
-3. Pulsar ▶ — cada fotograma genera un fractal distinto automáticamente.
+1. Install [Processing 3+](https://processing.org/download).
 
-No se requieren librerías externas: el sketch usa únicamente la API estándar de Processing y `java.lang.Math`.
+2. Open `CIU_Julia_Set.pde`.
+
+3. Press ▶ — each frame automatically generates a different fractal.
+
+No external libraries are required: the sketch uses only the standard Processing API and `java.lang.Math`.
 
 ---
 
-## Conceptos clave — Referencias
+## Key Concepts — References
 
-| Concepto | Wikipedia |
+| Concept | Wikipedia |
 |----------|-----------|
-| Conjunto de Julia | [Julia set](https://en.wikipedia.org/wiki/Julia_set) |
+| Julia Set | [Julia set](https://en.wikipedia.org/wiki/Julia_set) |
 | Fractal | [Fractal — Wikipedia](https://en.wikipedia.org/wiki/Fractal) |
-| Plano complejo | [Complex plane](https://en.wikipedia.org/wiki/Complex_plane) |
-| Algoritmo de tiempo de escape | [Escape time algorithm](https://en.wikipedia.org/wiki/Plotting_algorithms_for_the_Mandelbrot_set#Escape_time_algorithm) |
-| Fórmula de De Moivre | [De Moivre's formula](https://en.wikipedia.org/wiki/De_Moivre%27s_formula) |
-| Conjunto de Mandelbrot (contexto) | [Mandelbrot set](https://en.wikipedia.org/wiki/Mandelbrot_set) |
-| Modelo de color HSB/HSV | [HSL and HSV](https://en.wikipedia.org/wiki/HSL_and_HSV) |
+| Complex plan | [Complex plane](https://en.wikipedia.org/wiki/Complex_plane) |
+| Escape time algorithm | [Escape time algorithm](https://en.wikipedia.org/wiki/Plotting_algorithms_for_the_Mandelbrot_set#Escape_time_algorithm) |
+| De Moivre formula | [De Moivre's formula](https://en.wikipedia.org/wiki/De_Moivre%27s_formula) |
+| Mandelbrot set (context) | [Mandelbrot set](https://en.wikipedia.org/wiki/Mandelbrot_set) |
+| HSB/HSV color model | [HSL and HSV](https://en.wikipedia.org/wiki/HSL_and_HSV) |
